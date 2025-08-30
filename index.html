@@ -9,8 +9,9 @@
     *{box-sizing:border-box} html,body{height:100%}
     body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,Helvetica,Arial;background:radial-gradient(1200px 600px at 70% -10%, #1f2937 0%, #0f172a 60%);color:var(--text);display:flex;flex-direction:column}
     .topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:rgba(255,255,255,.02);border-bottom:1px solid rgba(255,255,255,.06)}
-    .controls{display:flex;gap:8px;flex-wrap:wrap}
+    .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
     .btn{background:transparent;color:var(--text);border:1px solid rgba(255,255,255,.18);padding:9px 12px;border-radius:12px;cursor:pointer;transition:.18s;font-weight:600}
+    .btn[disabled]{opacity:.5;cursor:not-allowed}
     .btn.primary{background:var(--primary);border-color:var(--primary);color:#03110a}
     .btn.primary:hover{background:var(--primary-600)}
     .btn.secondary{background:rgba(255,255,255,.04)}
@@ -25,6 +26,7 @@
     .meta{display:flex;gap:12px;justify-content:center;color:var(--muted)}
     dialog{border:none;border-radius:16px;padding:16px;background:#0b1223;color:var(--text)}
     dialog::backdrop{background:rgba(0,0,0,.55)}
+    label.inline{display:flex;gap:8px;align-items:center}
   </style>
 </head>
 <body>
@@ -36,13 +38,13 @@
       <button id="btn-export" class="btn">Export</button>
       <button id="btn-archive" class="btn secondary">📦 Archivieren</button>
       <button id="btn-delete" class="btn secondary">🗑️ Löschen</button>
-      <label class="controls"><input type="checkbox" id="chk-archived"> Archiv anzeigen</label>
+      <label class="inline"><input type="checkbox" id="chk-archived"> Archiv anzeigen</label>
     </nav>
   </header>
 
   <main class="app">
     <section class="stage">
-      <div id="card" class="card" tabindex="0">
+      <div id="card" class="card" tabindex="0" aria-label="Karte – klicken oder Leertaste zum Flippen">
         <div class="card-inner">
           <div class="card-face" id="cardFront"></div>
           <div class="card-face card-back" id="cardBack"></div>
@@ -50,9 +52,9 @@
       </div>
     </section>
     <section class="actions">
-      <button id="btn-prev" class="btn secondary">←</button>
-      <button id="btn-flip" class="btn primary">Flip</button>
-      <button id="btn-next" class="btn secondary">→</button>
+      <button id="btn-prev" class="btn secondary" aria-label="Vorherige Karte">←</button>
+      <button id="btn-flip" class="btn primary" aria-label="Karte flippen">Flip</button>
+      <button id="btn-next" class="btn secondary" aria-label="Nächste Karte">→</button>
     </section>
     <section class="meta">
       <span id="progressText">0 / 0</span>
@@ -75,82 +77,206 @@
 
   <script>
   (()=>{
-    const STORAGE_KEY="flashcards_v4";
-    let state=load()||{cards:sample(),index:0,showArchived:false};
+    const STORAGE_KEY = "flashcards_v4";
+    let state = load() || { cards: sample(), index: 0, showArchived: false };
 
-    const elF=document.getElementById("cardFront"), elB=document.getElementById("cardBack"), elC=document.getElementById("card"), prog=document.getElementById("progressText");
-    const chkArchived=document.getElementById("chk-archived");
+    // Elements
+    const elF = document.getElementById("cardFront");
+    const elB = document.getElementById("cardBack");
+    const elC = document.getElementById("card");
+    const prog = document.getElementById("progressText");
+    const chkArchived = document.getElementById("chk-archived");
+    const btnPrev = document.getElementById("btn-prev");
+    const btnNext = document.getElementById("btn-next");
+    const btnFlip = document.getElementById("btn-flip");
+    const btnArchive = document.getElementById("btn-archive");
+    const btnDelete = document.getElementById("btn-delete");
+    const btnExport = document.getElementById("btn-export");
+    const btnImport = document.getElementById("btn-import");
+    const btnNew = document.getElementById("btn-new");
+    const fileInput = document.getElementById("file-input");
+    const dlgNew = document.getElementById("dlg-new");
 
+    // Sync initial UI state
+    chkArchived.checked = !!state.showArchived;
+
+    // Render
     function render(){
-      const list=filtered();
-      if(!list.length){elF.textContent="Keine Karten";elB.textContent="";prog.textContent="0/0";return;}
-      let c=list[state.index];
-      elF.textContent=c.front+(c.archived?" (Archiv)":"");
-      elB.textContent=c.back;
-      prog.textContent=`${state.index+1}/${list.length}`;
-    }
-    function flip(){elC.classList.toggle("flipped");}
-    function next(){const list=filtered();if(!list.length) return;state.index=(state.index+1)%list.length;save();render();}
-    function prev(){const list=filtered();if(!list.length) return;state.index=(state.index-1+list.length)%list.length;save();render();}
+      const list = filtered();
 
-    document.getElementById("btn-flip").onclick=flip;
-    document.getElementById("btn-next").onclick=next;
-    document.getElementById("btn-prev").onclick=prev;
-    elC.onclick=flip; // Flip durch Klick auf Karte
+      // Clamp index
+      if (state.index >= list.length) state.index = Math.max(0, list.length - 1);
+      if (state.index < 0) state.index = 0;
 
-    document.getElementById("btn-new").onclick=()=>dlgNew.showModal();
-    const dlgNew=document.getElementById("dlg-new");
-    dlgNew.addEventListener("close",()=>{
-      if(dlgNew.returnValue==="ok"){
-        let f=document.getElementById("new-front").value.trim();
-        let b=document.getElementById("new-back").value.trim();
-        if(f&&b) state.cards.push({front:f,back:b,archived:false});
-        save();render();
+      // Reset flip each render
+      elC.classList.remove("flipped");
+
+      // Disable/enable action buttons depending on availability
+      const hasCards = list.length > 0;
+      [btnPrev, btnNext, btnFlip, btnArchive, btnDelete, btnExport].forEach(b => b.disabled = !hasCards);
+
+      if (!hasCards){
+        elF.textContent = "Keine Karten";
+        elB.textContent = "";
+        prog.textContent = "0 / 0";
+        save();
+        return;
       }
-      document.getElementById("new-front").value="";document.getElementById("new-back").value="";
-    });
 
-    document.getElementById("btn-export").onclick=()=>{
-      let data=JSON.stringify(state.cards,null,2);
-      let a=document.createElement("a");
-      a.href=URL.createObjectURL(new Blob([data],{type:"application/json"}));
-      a.download="cards.json";a.click();
-    };
-    document.getElementById("btn-import").onclick=()=>document.getElementById("file-input").click();
-    document.getElementById("file-input").addEventListener("change",async e=>{
-      let f=e.target.files[0];if(!f) return;
-      let text=await f.text();
-      try{
-        if(f.name.endsWith(".json")) state.cards=JSON.parse(text);
-        else state.cards=parseCSV(text);
-        state.index=0;save();render();
-      }catch(err){alert("Fehler: "+err.message);}finally{e.target.value="";}
-    });
-
-    document.getElementById("btn-archive").onclick=()=>{
-      let c=current();if(!c) return;c.archived=!c.archived;save();render();
-    };
-    document.getElementById("btn-delete").onclick=()=>{
-      let c=current();if(!c) return;
-      if(!confirm("Karte löschen?")) return;
-      let idx=state.cards.indexOf(c);if(idx>=0) state.cards.splice(idx,1);
-      state.index=0;save();render();
-    };
-
-    chkArchived.addEventListener("change",()=>{state.showArchived=chkArchived.checked;state.index=0;save();render();});
-
-    function current(){return filtered()[state.index];}
-    function filtered(){return state.cards.filter(c=>state.showArchived?c.archived:!c.archived);}
-    function save(){localStorage.setItem(STORAGE_KEY,JSON.stringify(state));}
-    function load(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY));}catch{return null;}}
-    function sample(){return[{front:"Haus",back:"house",archived:false},{front:"Baum",back:"tree",archived:false}];}
-    function parseCSV(text){
-      let lines=text.split(/\r?\n/).filter(l=>l.trim());
-      let rows=lines.map(l=>l.split(/[,;\t]/));
-      if(rows[0][0].toLowerCase().includes("front")) rows.shift();
-      return rows.map(r=>({front:r[0],back:r[1],archived:false}));
+      const c = list[state.index];
+      elF.textContent = c.front + (c.archived ? " (Archiv)" : "");
+      elB.textContent = c.back;
+      prog.textContent = `${state.index + 1} / ${list.length}`;
+      save();
     }
 
+    function flip(){
+      const list = filtered();
+      if (!list.length) return;
+      elC.classList.toggle("flipped");
+    }
+
+    function next(){
+      const list = filtered();
+      if (!list.length) return;
+      state.index = (state.index + 1) % list.length;
+      render();
+    }
+
+    function prev(){
+      const list = filtered();
+      if (!list.length) return;
+      state.index = (state.index - 1 + list.length) % list.length;
+      render();
+    }
+
+    function current(){
+      const list = filtered();
+      return list[state.index];
+    }
+
+    function filtered(){
+      return state.cards.filter(c => state.showArchived ? c.archived : !c.archived);
+    }
+
+    function save(){
+      const safe = { cards: state.cards, index: state.index, showArchived: !!state.showArchived };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(safe));
+    }
+
+    function load(){
+      try{ return JSON.parse(localStorage.getItem(STORAGE_KEY)); } catch{ return null; }
+    }
+
+    function sample(){
+      return [
+        { front: "Haus", back: "house", archived: false },
+        { front: "Baum", back: "tree", archived: false }
+      ];
+    }
+
+    function parseCSV(text){
+      const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+      const rows  = lines.map(l => l.split(/[,;\t]/).map(s => s.trim()));
+      const h0 = (rows[0]?.[0] || "").toLowerCase();
+      if (/(front|vorder)/.test(h0)) rows.shift();
+      return rows
+        .filter(r => r[0] && r[1])
+        .map(r => ({ front: r[0], back: r[1], archived: false }));
+    }
+
+    // Handlers
+    btnFlip.onclick = flip;
+    btnNext.onclick = next;
+    btnPrev.onclick = prev;
+
+    elC.onclick = flip; // Flip durch Klick auf Karte
+
+    // Tastatur-UX
+    elC.addEventListener("keydown", (e) => {
+      if (e.key === " " || e.key === "Enter") { e.preventDefault(); flip(); }
+      if (e.key === "ArrowRight") next();
+      if (e.key === "ArrowLeft")  prev();
+    });
+
+    // Neues-Karte-Dialog
+    btnNew.onclick = () => dlgNew.showModal();
+    dlgNew.addEventListener("close", () => {
+      if (dlgNew.returnValue === "ok"){
+        const f = document.getElementById("new-front").value.trim();
+        const b = document.getElementById("new-back").value.trim();
+        if (f && b) state.cards.push({ front: f, back: b, archived: false });
+      }
+      document.getElementById("new-front").value = "";
+      document.getElementById("new-back").value  = "";
+      // Nach Hinzufügen/Abbrechen neu rendern (inkl. Flip-Reset & Clamp)
+      render();
+    });
+
+    // Export
+    btnExport.onclick = () => {
+      const data = JSON.stringify(state.cards, null, 2);
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(new Blob([data], { type: "application/json" }));
+      a.download = "cards.json";
+      a.click();
+    };
+
+    // Import
+    btnImport.onclick = () => fileInput.click();
+    fileInput.addEventListener("change", async e => {
+      const f = e.target.files[0];
+      if (!f) return;
+      const text = await f.text();
+      try{
+        if (f.name.endsWith(".json")){
+          const arr = JSON.parse(text);
+          if (!Array.isArray(arr)) throw new Error("JSON muss ein Array sein.");
+          state.cards = arr
+            .filter(o => o && typeof o.front === "string" && typeof o.back === "string")
+            .map(o => ({ front: o.front.trim(), back: o.back.trim(), archived: !!o.archived }));
+        } else {
+          state.cards = parseCSV(text);
+        }
+        state.index = 0;
+        render();
+      } catch(err){
+        alert("Fehler beim Import: " + err.message);
+      } finally {
+        e.target.value = ""; // Input zurücksetzen
+      }
+    });
+
+    // Archivieren / Löschen
+    btnArchive.onclick = () => {
+      const c = current();
+      if (!c) return;
+      // Toggle Archiv-Flag auf der realen Karte im Gesamtdatensatz
+      const realIndex = state.cards.findIndex(k => k.front === c.front && k.back === c.back && k.archived === c.archived);
+      if (realIndex > -1) state.cards[realIndex].archived = !state.cards[realIndex].archived;
+      // Nach Statuswechsel neu rendern (Clamp & Flip-Reset erledigt render())
+      render();
+    };
+
+    btnDelete.onclick = () => {
+      const c = current();
+      if (!c) return;
+      if (!confirm("Karte löschen?")) return;
+      // Entferne die Karte aus dem Gesamtdatensatz
+      const realIndex = state.cards.findIndex(k => k.front === c.front && k.back === c.back && k.archived === c.archived);
+      if (realIndex > -1) state.cards.splice(realIndex, 1);
+      state.index = 0;
+      render();
+    };
+
+    // Archiv-Filter umschalten
+    chkArchived.addEventListener("change", () => {
+      state.showArchived = chkArchived.checked;
+      state.index = 0;
+      render();
+    });
+
+    // Initial zeichnen
     render();
   })();
   </script>
