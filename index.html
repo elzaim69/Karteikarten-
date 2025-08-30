@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Karteikarten – Sprachtrainer (stabil mit Archiv & Löschen)</title>
+  <title>Karteikarten – Sprachtrainer (Fix: Flip, Abbrechen, Archiv)</title>
   <style>
     :root{ --bg:#0f172a; --muted:#94a3b8; --text:#e5e7eb; --primary:#22c55e; --primary-600:#16a34a; --shadow:0 12px 35px rgba(0,0,0,.35); }
     *{box-sizing:border-box} html,body{height:100%}
@@ -16,7 +16,7 @@
     .btn.secondary{background:rgba(255,255,255,.04)}
     .app{flex:1;display:grid;grid-template-rows:1fr auto auto;gap:14px;padding:16px;max-width:960px;margin:0 auto;width:100%}
     .stage{display:grid;place-items:center;min-height:360px}
-    .card{width:min(680px,92vw);height:min(380px,56vh);perspective:1400px}
+    .card{position:relative;width:min(680px,92vw);height:min(380px,56vh);perspective:1400px;cursor:pointer}
     .card-inner{width:100%;height:100%;transform-style:preserve-3d;transition:transform .6s}
     .card.flipped .card-inner{transform:rotateY(180deg)}
     .card-face{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:28px;text-align:center;font-size:clamp(22px,4.5vw,40px);background:rgba(255,255,255,.05);border-radius:22px;backface-visibility:hidden}
@@ -36,6 +36,7 @@
       <button id="btn-export" class="btn">Export</button>
       <button id="btn-archive" class="btn secondary">📦 Archivieren</button>
       <button id="btn-delete" class="btn secondary">🗑️ Löschen</button>
+      <label class="controls"><input type="checkbox" id="chk-archived"> Archiv anzeigen</label>
     </nav>
   </header>
 
@@ -74,30 +75,36 @@
 
   <script>
   (()=>{
-    const STORAGE_KEY="flashcards_v3";
-    let state=load()||{cards:sample(),index:0};
+    const STORAGE_KEY="flashcards_v4";
+    let state=load()||{cards:sample(),index:0,showArchived:false};
 
     const elF=document.getElementById("cardFront"), elB=document.getElementById("cardBack"), elC=document.getElementById("card"), prog=document.getElementById("progressText");
+    const chkArchived=document.getElementById("chk-archived");
 
     function render(){
-      if(!state.cards.length){elF.textContent="Keine Karten";elB.textContent="";prog.textContent="0/0";return;}
-      let c=state.cards[state.index];
-      elF.textContent=c.front;elB.textContent=c.back;prog.textContent=`${state.index+1}/${state.cards.length}`;
+      const list=filtered();
+      if(!list.length){elF.textContent="Keine Karten";elB.textContent="";prog.textContent="0/0";return;}
+      let c=list[state.index];
+      elF.textContent=c.front+(c.archived?" (Archiv)":"");
+      elB.textContent=c.back;
+      prog.textContent=`${state.index+1}/${list.length}`;
     }
     function flip(){elC.classList.toggle("flipped");}
-    function next(){state.index=(state.index+1)%state.cards.length;save();render();}
-    function prev(){state.index=(state.index-1+state.cards.length)%state.cards.length;save();render();}
+    function next(){const list=filtered();if(!list.length) return;state.index=(state.index+1)%list.length;save();render();}
+    function prev(){const list=filtered();if(!list.length) return;state.index=(state.index-1+list.length)%list.length;save();render();}
 
     document.getElementById("btn-flip").onclick=flip;
     document.getElementById("btn-next").onclick=next;
     document.getElementById("btn-prev").onclick=prev;
+    elC.onclick=flip; // Flip durch Klick auf Karte
+
     document.getElementById("btn-new").onclick=()=>dlgNew.showModal();
     const dlgNew=document.getElementById("dlg-new");
     dlgNew.addEventListener("close",()=>{
       if(dlgNew.returnValue==="ok"){
         let f=document.getElementById("new-front").value.trim();
         let b=document.getElementById("new-back").value.trim();
-        if(f&&b) state.cards.push({front:f,back:b});
+        if(f&&b) state.cards.push({front:f,back:b,archived:false});
         save();render();
       }
       document.getElementById("new-front").value="";document.getElementById("new-back").value="";
@@ -121,23 +128,27 @@
     });
 
     document.getElementById("btn-archive").onclick=()=>{
-      let c=state.cards[state.index];if(!c) return;
-      c.archived=!c.archived;save();render();
+      let c=current();if(!c) return;c.archived=!c.archived;save();render();
     };
     document.getElementById("btn-delete").onclick=()=>{
-      if(!state.cards.length) return;
+      let c=current();if(!c) return;
       if(!confirm("Karte löschen?")) return;
-      state.cards.splice(state.index,1);state.index=0;save();render();
+      let idx=state.cards.indexOf(c);if(idx>=0) state.cards.splice(idx,1);
+      state.index=0;save();render();
     };
 
+    chkArchived.addEventListener("change",()=>{state.showArchived=chkArchived.checked;state.index=0;save();render();});
+
+    function current(){return filtered()[state.index];}
+    function filtered(){return state.cards.filter(c=>state.showArchived?c.archived:!c.archived);}
     function save(){localStorage.setItem(STORAGE_KEY,JSON.stringify(state));}
     function load(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY));}catch{return null;}}
-    function sample(){return[{front:"Haus",back:"house"},{front:"Baum",back:"tree"}];}
+    function sample(){return[{front:"Haus",back:"house",archived:false},{front:"Baum",back:"tree",archived:false}];}
     function parseCSV(text){
       let lines=text.split(/\r?\n/).filter(l=>l.trim());
       let rows=lines.map(l=>l.split(/[,;\t]/));
       if(rows[0][0].toLowerCase().includes("front")) rows.shift();
-      return rows.map(r=>({front:r[0],back:r[1]}));
+      return rows.map(r=>({front:r[0],back:r[1],archived:false}));
     }
 
     render();
