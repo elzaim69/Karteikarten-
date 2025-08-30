@@ -3,49 +3,39 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Karteikarten – Sprachtrainer (Single‑File)</title>
-  <meta name="description" content="Moderne, effiziente Web‑App für digitale Karteikarten mit Flip‑Animation, Import/Export und lokaler Speicherung – als Single‑File bereit für GitHub Pages." />
+  <title>Karteikarten – Sprachtrainer (Single‑File, Archiv + Löschen)</title>
+  <meta name="description" content="Digitale Karteikarten mit Flip-Animation, Import/Export (CSV/JSON), Auto-Delimiter, Archiv-Funktion und Lösch-Optionen – als Single‑File für GitHub Pages." />
   <style>
-    :root{
-      --bg:#0f172a; --card:#111827; --muted:#94a3b8; --text:#e5e7eb; --primary:#22c55e; --primary-600:#16a34a; --shadow:0 12px 35px rgba(0,0,0,.35);
-    }
-    *{box-sizing:border-box}
-    html,body{height:100%}
-    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,Helvetica,Arial; background:radial-gradient(1200px 600px at 70% -10%, #1f2937 0%, var(--bg) 60%); color:var(--text); display:flex; flex-direction:column}
-
-    .topbar{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;background:rgba(255,255,255,.02);backdrop-filter:blur(6px);border-bottom:1px solid rgba(255,255,255,.06)}
-    .topbar h1{margin:0;font-size:clamp(18px,2vw,22px);letter-spacing:.3px}
-    .controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-
-    .btn{background:transparent;color:var(--text);border:1px solid rgba(255,255,255,.18);padding:10px 14px;border-radius:12px;cursor:pointer;transition:all .18s ease;font-weight:600}
+    :root{ --bg:#0f172a; --muted:#94a3b8; --text:#e5e7eb; --primary:#22c55e; --primary-600:#16a34a; --shadow:0 12px 35px rgba(0,0,0,.35); }
+    *{box-sizing:border-box} html,body{height:100%}
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,Helvetica,Arial;background:radial-gradient(1200px 600px at 70% -10%, #1f2937 0%, #0f172a 60%);color:var(--text);display:flex;flex-direction:column}
+    .topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:rgba(255,255,255,.02);backdrop-filter:blur(6px);border-bottom:1px solid rgba(255,255,255,.06)}
+    .topbar h1{margin:0;font-size:clamp(18px,2vw,22px)}
+    .controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    .btn{background:transparent;color:var(--text);border:1px solid rgba(255,255,255,.18);padding:9px 12px;border-radius:12px;cursor:pointer;transition:all .18s ease;font-weight:600}
     .btn:hover{transform:translateY(-1px);border-color:rgba(255,255,255,.35)}
     .btn.primary{background:var(--primary);border-color:var(--primary);color:#03110a}
     .btn.primary:hover{background:var(--primary-600);border-color:var(--primary-600)}
     .btn.secondary{background:rgba(255,255,255,.04)}
-
-    .switch{display:flex;align-items:center;gap:8px;cursor:pointer}
+    .switch{display:flex;align-items:center;gap:6px;cursor:pointer}
     .switch input{accent-color:var(--primary);cursor:pointer}
-
-    .app{flex:1;display:grid;grid-template-rows:1fr auto auto;gap:18px;padding:20px;max-width:900px;margin:0 auto;width:100%}
+    .app{flex:1;display:grid;grid-template-rows:1fr auto auto;gap:14px;padding:16px;max-width:960px;margin:0 auto;width:100%}
     .stage{display:grid;place-items:center;min-height:360px}
-
     .card{width:min(680px,92vw);height:min(380px,56vh);perspective:1400px;outline:none}
     .card-inner{position:relative;width:100%;height:100%;transform-style:preserve-3d;transition:transform 600ms cubic-bezier(.2,.7,.2,1)}
     .card.flipped .card-inner{transform:rotateY(180deg)}
     .card-face{position:absolute;inset:0;border-radius:22px;display:flex;align-items:center;justify-content:center;padding:28px;text-align:center;font-size:clamp(22px,4.5vw,40px);background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,.01));border:1px solid rgba(255,255,255,.12);box-shadow:var(--shadow);backface-visibility:hidden}
     .card-back{transform:rotateY(180deg)}
     .card-face::after{content:"";position:absolute;inset:auto 18px 18px auto;width:56px;height:56px;border-radius:50%;background:radial-gradient(circle at 30% 30%,rgba(255,255,255,.18),rgba(255,255,255,0) 60%);filter:blur(10px);opacity:.5;pointer-events:none}
-
-    .actions{display:flex;gap:10px;justify-content:center}
-    .progress{display:grid;place-items:center;color:var(--muted)}
-    .footer{padding:12px 20px;color:var(--muted);text-align:center;border-top:1px solid rgba(255,255,255,.06)}
-
+    .actions{display:flex;gap:8px;justify-content:center}
+    .meta{display:flex;gap:12px;justify-content:center;align-items:center;color:var(--muted)}
+    .footer{padding:10px 16px;color:var(--muted);text-align:center;border-top:1px solid rgba(255,255,255,.06)}
     dialog{border:none;border-radius:16px;padding:18px 18px 10px;width:min(520px,92vw);background:#0b1223;color:var(--text);box-shadow:var(--shadow)}
-    dialog::backdrop{background:rgba(0,0,0,.55)}
-    dialog h2{margin:.2rem 0 1rem 0}
+    dialog::backdrop{background:rgba(0,0,0,.55)} dialog h2{margin:.2rem 0 1rem 0}
     dialog label{display:block;margin:.6rem 0}
     dialog input{width:100%;padding:10px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.18);background:#0c1429;color:var(--text)}
-    dialog menu{display:flex;gap:10px;justify-content:flex-end;margin-top:1rem}
+    dialog menu{display:flex;gap:8px;justify-content:flex-end;margin-top:1rem}
+    .badge{padding:4px 8px;border:1px solid rgba(255,255,255,.18);border-radius:999px;font-size:12px;color:var(--muted)}
   </style>
 </head>
 <body>
@@ -56,6 +46,10 @@
       <button id="btn-import" class="btn">Import</button>
       <button id="btn-export" class="btn">Export</button>
       <label class="switch"><input type="checkbox" id="chk-shuffle"><span>Shuffle</span></label>
+      <label class="switch"><input type="checkbox" id="chk-archived"><span>Archiv anzeigen</span></label>
+      <button id="btn-archive" class="btn secondary" title="Aktuelle Karte archivieren / wiederherstellen (A)">📦 Archivieren</button>
+      <button id="btn-delete" class="btn secondary" title="Aktuelle Karte löschen (D)">🗑️ Karte</button>
+      <button id="btn-clear" class="btn secondary" title="Alle aktiven Karten löschen">🧹 Alle aktiven</button>
     </nav>
   </header>
 
@@ -75,18 +69,20 @@
       <button id="btn-next" class="btn secondary" title="Nächste (→)">→</button>
     </section>
 
-    <section class="progress" aria-label="Fortschritt">
-      <div id="progressText">0 / 0</div>
+    <section class="meta" aria-label="Status">
+      <span id="progressText" class="badge">0 / 0</span>
+      <span id="badgeActive" class="badge">Aktiv: 0</span>
+      <span id="badgeArchived" class="badge">Archiv: 0</span>
     </section>
   </main>
 
   <dialog id="dlg-new">
     <form method="dialog" id="form-new">
       <h2>Neue Karte hinzufügen</h2>
-      <label>Vorderseite (Deutsch)
+      <label>Vorderseite (front)
         <input id="new-front" required placeholder="z. B. Haus" />
       </label>
-      <label>Rückseite (Übersetzung)
+      <label>Rückseite (back)
         <input id="new-back" required placeholder="z. B. house (en)" />
       </label>
       <menu>
@@ -99,7 +95,7 @@
   <dialog id="dlg-import">
     <form method="dialog" id="form-import">
       <h2>Import</h2>
-      <p>CSV (front,back) oder JSON ([{"front":"","back":""}, ...])</p>
+      <p>CSV (front,back – Komma/; oder Tab) oder JSON ([{"front":"","back":""}, ...])</p>
       <input type="file" id="file-input" accept=".csv,.json" />
       <menu>
         <button value="cancel" class="btn secondary">Abbrechen</button>
@@ -109,16 +105,16 @@
   </dialog>
 
   <footer class="footer" role="contentinfo">
-    <small>Shortcuts: Space=Flip • ←/→=Navigation • N=Neue Karte • U=Import • S=Shuffle</small>
+    <small>Shortcuts: Space=Flip • ←/→ Navigation • N=Neue • U=Import • S=Shuffle • A=Archivieren • D=Löschen • V=Archiv anzeigen</small>
   </footer>
 
   <script>
   (() => {
     'use strict';
-    const STORAGE_KEY = 'flashcards_v1';
-    /** @typedef {{id:string, front:string, back:string}} Card */
-    /** @type {{cards: Card[], index: number, shuffled: boolean}} */
-    let state = loadState() || { cards: sampleDeck(), index: 0, shuffled: false };
+    const STORAGE_KEY = 'flashcards_v2';
+    /** @typedef {{id:string, front:string, back:string, archived?:boolean}} Card */
+    /** @type {{cards: Card[], index: number, shuffled: boolean, showArchived:boolean}} */
+    let state = migrate(loadState()) || { cards: sampleDeck(), index: 0, shuffled: false, showArchived:false };
 
     // Elements
     const elCard = document.getElementById('card');
@@ -132,6 +128,12 @@
     const elImport = document.getElementById('btn-import');
     const elExport = document.getElementById('btn-export');
     const elShuffle = document.getElementById('chk-shuffle');
+    const elShowArchived = document.getElementById('chk-archived');
+    const elArchive = document.getElementById('btn-archive');
+    const elDelete = document.getElementById('btn-delete');
+    const elClear = document.getElementById('btn-clear');
+    const badgeActive = document.getElementById('badgeActive');
+    const badgeArchived = document.getElementById('badgeArchived');
 
     const dlgNew = document.getElementById('dlg-new');
     const dlgImport = document.getElementById('dlg-import');
@@ -139,7 +141,9 @@
     const inputNewBack = document.getElementById('new-back');
     const fileInput = document.getElementById('file-input');
 
+    // Init
     elShuffle.checked = !!state.shuffled;
+    elShowArchived.checked = !!state.showArchived;
     render(true);
 
     // Events
@@ -147,139 +151,216 @@
     elFlip.addEventListener('click', flip);
     elPrev.addEventListener('click', prev);
     elNext.addEventListener('click', next);
-    elNew.addEventListener('click', () => { dlgNew.showModal(); setTimeout(() => inputNewFront.focus(), 50); });
+    elNew.addEventListener('click', () => { dlgNew.showModal(); setTimeout(() => inputNewFront.focus(), 40); });
     elImport.addEventListener('click', () => dlgImport.showModal());
     elExport.addEventListener('click', exportJSON);
+    elArchive.addEventListener('click', toggleArchiveCurrent);
+    elDelete.addEventListener('click', deleteCurrent);
+    elClear.addEventListener('click', clearAllActive);
 
     elShuffle.addEventListener('change', () => {
       state.shuffled = !!elShuffle.checked;
-      if (state.shuffled) {
-        shuffle(state.cards); state.index = 0;
-      } else {
-        state.cards.sort((a,b) => a.front.localeCompare(b.front)); state.index = 0;
-      }
-      persist(); render(true);
+      if (state.shuffled) { shuffle(state.cards); }
+      else { state.cards.sort(sortByFront); }
+      state.index = 0; persist(); render(true);
+    });
+
+    elShowArchived.addEventListener('change', () => {
+      state.showArchived = !!elShowArchived.checked; state.index = 0; persist(); render(true);
     });
 
     dlgNew.addEventListener('close', () => {
       if (dlgNew.returnValue === 'ok') {
         const front = inputNewFront.value.trim();
-        const back = inputNewBack.value.trim();
-        if (front && back) {
-          state.cards.push({ id: id(), front, back });
-          state.index = state.cards.length - 1;
-          persist(); render(true);
-        }
+        const back  = inputNewBack.value.trim();
+        if (front && back) { state.cards.push({ id: id(), front, back, archived:false }); persist(); state.index = filtered().length - 1; render(true); }
       }
       inputNewFront.value = ''; inputNewBack.value = '';
     });
 
+    // Import: akzeptiert CSV oder JSON; auto-Delimiter; Header optional (front/back, auch mit Klammern)
     dlgImport.addEventListener('close', async () => {
-      if (dlgImport.returnValue === 'ok') {
-        const file = fileInput.files && fileInput.files[0];
-        if (!file) return;
-        try {
-          const text = await file.text();
-          let cards;
-          if (file.name.toLowerCase().endsWith('.json')) {
-            const parsed = JSON.parse(text);
-            if (!Array.isArray(parsed)) throw new Error('JSON muss ein Array sein.');
-            cards = parsed.map(row => validateRow(row.front, row.back));
-          } else {
-            cards = parseCSV(text);
-          }
-          state.cards = cards.map(r => ({ id: id(), front: r.front, back: r.back }));
-          state.index = 0; persist(); render(true);
-        } catch (err) {
-          alert('Import fehlgeschlagen: ' + (err && err.message ? err.message : err));
-        } finally {
-          fileInput.value = '';
-        }
-      } else {
-        fileInput.value = '';
-      }
+      if (dlgImport.returnValue === 'ok') { await handleImportFromInput(); }
+      else { fileInput.value = ''; }
+    });
+    fileInput.addEventListener('change', async () => { // Sofort-Import nach Dateiauswahl
+      if (!dlgImport.open) dlgImport.showModal();
+      await handleImportFromInput();
     });
 
     document.addEventListener('keydown', (e) => {
-      if (isDialogOpen()) return;
+      if (dlgNew.open || dlgImport.open) return;
       if (e.key === ' ') { e.preventDefault(); flip(); }
       if (e.key === 'ArrowRight') next();
       if (e.key === 'ArrowLeft') prev();
       if (e.key.toLowerCase() === 'n') dlgNew.showModal();
       if (e.key.toLowerCase() === 'u') dlgImport.showModal();
       if (e.key.toLowerCase() === 's') elShuffle.click();
+      if (e.key.toLowerCase() === 'a') toggleArchiveCurrent();
+      if (e.key.toLowerCase() === 'd') deleteCurrent();
+      if (e.key.toLowerCase() === 'v') { elShowArchived.checked = !elShowArchived.checked; elShowArchived.dispatchEvent(new Event('change')); }
     });
 
-    function isDialogOpen(){ return dlgNew.open || dlgImport.open; }
-
     function render(resetFlip=false){
-      const card = current();
-      if (!card) {
-        elFront.textContent = 'Keine Karten vorhanden. Importieren Sie CSV/JSON oder fügen Sie Karten hinzu.';
-        elBack.textContent = 'Beispiel CSV:\nHaus,house\nBaum,tree';
+      const list = filtered();
+      const total = list.length;
+      const allActive = state.cards.filter(c=>!c.archived).length;
+      const allArchived = state.cards.filter(c=>!!c.archived).length;
+
+      badgeActive.textContent = `Aktiv: ${allActive}`;
+      badgeArchived.textContent = `Archiv: ${allArchived}`;
+
+      if (!total) {
+        elFront.textContent = state.showArchived ? 'Kein Eintrag im Archiv.' : 'Keine aktiven Karten. Importiere CSV/JSON oder füge Karten hinzu.';
+        elBack.textContent = 'Beispiel CSV:
+front,back
+Haus,house
+Baum,tree';
         elProgress.textContent = '0 / 0';
+        updateArchiveButtonLabel(null);
         return;
       }
+
+      // Korrigiere Index, falls außerhalb
+      state.index = Math.max(0, Math.min(state.index, total - 1));
+      const card = list[state.index];
       elFront.textContent = card.front;
-      elBack.textContent = card.back;
-      elProgress.textContent = `${state.index + 1} / ${state.cards.length}`;
-      if (resetFlip) document.getElementById('card').classList.remove('flipped');
+      elBack.textContent  = card.back;
+      elProgress.textContent = `${state.index + 1} / ${total}`;
+      updateArchiveButtonLabel(card);
+      if (resetFlip) elCard.classList.remove('flipped');
     }
 
-    function flip(){ document.getElementById('card').classList.toggle('flipped'); }
-    function next(){ state.index = (state.index + 1) % Math.max(1, state.cards.length); persist(); render(true); }
-    function prev(){ state.index = (state.index - 1 + state.cards.length) % Math.max(1, state.cards.length); persist(); render(true); }
-    function current(){ return state.cards[state.index]; }
-
-    function persist(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
-    function loadState(){ try { const raw = localStorage.getItem(STORAGE_KEY); if(!raw) return null; const s = JSON.parse(raw); return Array.isArray(s.cards) ? s : null; } catch { return null; } }
-
-    function shuffle(arr){ for (let i=arr.length-1; i>0; i--){ const j = Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]]; } }
-    function id(){ return (crypto && crypto.randomUUID) ? crypto.randomUUID() : 'id-'+Math.random().toString(36).slice(2)+Date.now().toString(36); }
-
-    function sampleDeck(){
-      return [
-        { id:id(), front:'Haus', back:'house' },
-        { id:id(), front:'Baum', back:'tree' },
-        { id:id(), front:'Straße', back:'street' },
-        { id:id(), front:'Freund', back:'friend' },
-        { id:id(), front:'Zeit', back:'time' }
-      ];
+    function updateArchiveButtonLabel(card){
+      if (!card) { elArchive.textContent = '📦 Archivieren'; return; }
+      elArchive.textContent = card.archived ? '↩️ Wiederherstellen' : '📦 Archivieren';
     }
 
-    function validateRow(front, back){
-      if (typeof front !== 'string' || typeof back !== 'string' || !front.trim() || !back.trim())
-        throw new Error('Ungültige Datenzeile. Erforderlich: front, back.');
-      return { front: front.trim(), back: back.trim() };
-    }
+    function filtered(){ return state.cards.filter(c => state.showArchived ? !!c.archived : !c.archived); }
+    function current(){ return filtered()[state.index]; }
 
-    function parseCSV(text){
-      const rows = []; const lines = text.split(/\r?\n/).filter(l => l.trim().length);
-      for (const line of lines){
-        const vals = []; let cur=''; let inQ=false;
-        for (let i=0;i<line.length;i++){
-          const c=line[i];
-          if (c==='"'){
-            if (inQ && line[i+1]==='"'){ cur+='"'; i++; }
-            else inQ=!inQ;
-          } else if (c===',' && !inQ){ vals.push(cur); cur=''; }
-          else { cur+=c; }
-        }
-        vals.push(cur);
-        if (vals.length < 2) throw new Error('CSV: Jede Zeile benötigt zwei Spalten (front, back).');
-        rows.push(validateRow(vals[0], vals[1]));
+    function flip(){ elCard.classList.toggle('flipped'); }
+    function next(){ const total = filtered().length || 1; state.index = (state.index + 1) % total; persist(); render(true); }
+    function prev(){ const total = filtered().length || 1; state.index = (state.index - 1 + total) % total; persist(); render(true); }
+
+    function toggleArchiveCurrent(){
+      const card = current(); if (!card) return;
+      // Finde echte Referenz im Master-Array
+      const idx = state.cards.findIndex(c => c.id === card.id);
+      if (idx >= 0) {
+        state.cards[idx].archived = !state.cards[idx].archived;
+        persist(); state.index = 0; render(true);
       }
-      return rows;
+    }
+
+    function deleteCurrent(){
+      const card = current(); if (!card) return;
+      if (!confirm('Diese Karte wirklich löschen?')) return;
+      const idx = state.cards.findIndex(c => c.id === card.id);
+      if (idx >= 0) { state.cards.splice(idx, 1); persist(); state.index = 0; render(true); }
+    }
+
+    function clearAllActive(){
+      if (!confirm('Alle AKTIVEN Karten löschen? Archiv bleibt erhalten.')) return;
+      state.cards = state.cards.filter(c => !!c.archived); // nur Archiv behalten
+      state.index = 0; persist(); render(true);
+    }
+
+    async function handleImportFromInput(){
+      const file = fileInput.files && fileInput.files[0];
+      if (!file) return;
+      try {
+        const text = await file.text();
+        let cards;
+        if (file.name.toLowerCase().endsWith('.json')) {
+          const parsed = JSON.parse(text);
+          if (!Array.isArray(parsed)) throw new Error('JSON muss ein Array sein.');
+          cards = parsed.map(row => validateRow(row.front, row.back));
+        } else { // CSV
+          cards = parseCSVAuto(text).rows;
+        }
+        // Erzeuge neue Kartenliste (Archiv-Flag standardmäßig false)
+        state.cards = cards.map(r => ({ id: id(), front: r.front, back: r.back, archived:false }));
+        state.index = 0; state.showArchived = false; elShowArchived.checked = false;
+        // Optional: Sortierung, wenn nicht Shuffle aktiv ist
+        if (!state.shuffled) state.cards.sort(sortByFront);
+        persist(); render(true);
+      } catch (err) {
+        alert('Import fehlgeschlagen: ' + (err && err.message ? err.message : err));
+      } finally {
+        fileInput.value = '';
+        if (dlgImport.open) dlgImport.close();
+      }
     }
 
     function exportJSON(){
-      const payload = state.cards.map(c => ({ front: c.front, back: c.back }));
+      const payload = state.cards.map(c => ({ front: c.front, back: c.back })); // Export ohne Archiv-Flag, bewusst einfach
       const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
       a.download = 'flashcards-' + new Date().toISOString().slice(0,10) + '.json';
       document.body.appendChild(a); a.click();
       setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 0);
+    }
+
+    function sortByFront(a,b){ return a.front.localeCompare(b.front); }
+    function persist(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+    function loadState(){ try { const raw = localStorage.getItem(STORAGE_KEY) || localStorage.getItem('flashcards_v1'); return raw ? JSON.parse(raw) : null; } catch { return null; } }
+
+    function migrate(s){
+      if (!s) return null;
+      // v1 -> v2: showArchived Flag + archived Feld an Karten anhängen
+      const migrated = { index: s.index||0, shuffled: !!s.shuffled, showArchived: !!s.showArchived, cards: Array.isArray(s.cards) ? s.cards.map(c => ({ id: c.id || id(), front: c.front, back: c.back, archived: !!c.archived })) : [] };
+      if (typeof migrated.showArchived !== 'boolean') migrated.showArchived = false;
+      return migrated;
+    }
+
+    function shuffle(arr){ for (let i=arr.length-1; i>0; i--){ const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]]; } }
+    function id(){ return (crypto && crypto.randomUUID) ? crypto.randomUUID() : 'id-'+Math.random().toString(36).slice(2)+Date.now().toString(36); }
+
+    function sampleDeck(){ return [ {id:id(),front:'Haus',back:'house',archived:false}, {id:id(),front:'Baum',back:'tree',archived:false}, {id:id(),front:'Straße',back:'street',archived:false}, {id:id(),front:'Freund',back:'friend',archived:false}, {id:id(),front:'Zeit',back:'time',archived:false} ]; }
+
+    function validateRow(front, back){
+      if (typeof front !== 'string' || typeof back !== 'string') throw new Error('Ungültige Daten.');
+      const f = front.trim(); const b = back.trim();
+      if (!f || !b) throw new Error('Leere Werte gefunden.');
+      return { front: f, back: b };
+    }
+
+    // CSV mit Auto-Delimiter (; , 	) und optionaler Kopfzeile (front/back – auch mit Klammern)
+    function parseCSVAuto(text){
+      // BOM entfernen
+      if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+      const lines = text.split(/
+?
+/).filter(l => l.trim().length);
+      if (!lines.length) throw new Error('CSV ist leer.');
+      const first = lines[0];
+      const counts = { ',': (first.match(/,/g)||[]).length, ';': (first.match(/;/g)||[]).length, '	': (first.match(/	/g)||[]).length };
+      const delim = counts['	']>counts[','] && counts['	']>counts[';'] ? '	' : (counts[';']>counts[','] ? ';' : ',');
+      const rows = lines.map(l => splitCSVLine(l, delim)).map(cols => {
+        if (cols.length < 2) throw new Error('Jede Zeile benötigt zwei Spalten (front, back).');
+        return [cols[0], cols[1]];
+      });
+      // Header erkennen und ggf. entfernen
+      const norm = (s) => (s||'').toString().trim().toLowerCase().replace(/[^a-z]/g,'');
+      if (rows.length && norm(rows[0][0]) === 'front' && norm(rows[0][1]) === 'back') rows.shift();
+      const mapped = rows.map(([f,b]) => validateRow(f,b));
+      return { rows: mapped };
+    }
+
+    function splitCSVLine(line, delim){
+      const out = []; let cur = ''; let inQ = false; const d = delim === '\t' ? '	' : delim;
+      for (let i=0;i<line.length;i++){
+        const c = line[i];
+        if (c === '"'){
+          if (inQ && line[i+1] === '"') { cur += '"'; i++; }
+          else { inQ = !inQ; }
+        } else if (c === d && !inQ) { out.push(cur); cur=''; }
+        else { cur += c; }
+      }
+      out.push(cur);
+      return out;
     }
   })();
   </script>
