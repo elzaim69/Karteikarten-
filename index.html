@@ -27,6 +27,11 @@
     dialog{border:none;border-radius:16px;padding:16px;background:#0b1223;color:var(--text)}
     dialog::backdrop{background:rgba(0,0,0,.55)}
     label.inline{display:flex;gap:8px;align-items:center}
+    /* Archivliste */
+    .list{display:flex;flex-direction:column;gap:8px;max-height:55vh;overflow:auto;margin-top:8px}
+    .row{display:flex;align-items:center;justify-content:space-between;gap:8px;border:1px solid rgba(255,255,255,.14);border-radius:10px;padding:8px}
+    .row .word{display:flex;gap:10px;align-items:center}
+    .row small{color:var(--muted)}
   </style>
 </head>
 <body>
@@ -36,8 +41,9 @@
       <button id="btn-new" class="btn">+ Karte</button>
       <button id="btn-import" class="btn">Import</button>
       <button id="btn-export" class="btn">Export</button>
-      <button id="btn-archive" class="btn secondary">📦 Archiv</button>
-      <button id="btn-delete" class="btn secondary">🗑️ Löschen</button>
+      <button id="btn-done" class="btn secondary" title="Aktuelle Karte ins Archiv verschieben">✔️ Abschließen</button>
+      <button id="btn-archive" class="btn secondary" title="Archiv-Ordner öffnen">📦 Archiv</button>
+      <button id="btn-delete" class="btn secondary" title="Sofort löschen">🗑️ Löschen</button>
       <label class="inline"><input type="checkbox" id="chk-archived"> Archiv anzeigen</label>
     </nav>
   </header>
@@ -58,6 +64,7 @@
     </section>
     <section class="meta">
       <span id="progressText">0 / 0</span>
+      <span id="metaArchiveCount"></span>
     </section>
   </main>
 
@@ -73,11 +80,21 @@
     </form>
   </dialog>
 
+  <dialog id="dlg-archive">
+    <form method="dialog">
+      <h2>Archiv <small id="archCount"></small></h2>
+      <div id="archList" class="list"></div>
+      <menu>
+        <button value="close" class="btn primary">Schließen</button>
+      </menu>
+    </form>
+  </dialog>
+
   <input type="file" id="file-input" accept=".csv,.json" style="display:none">
 
   <script>
   (()=>{
-    const STORAGE_KEY = "flashcards_v5";
+    const STORAGE_KEY = "flashcards_v6";
     let state = load() || { cards: sample(), index: 0, showArchived: false };
 
     // Elements
@@ -85,10 +102,12 @@
     const elB = document.getElementById("cardBack");
     const elC = document.getElementById("card");
     const prog = document.getElementById("progressText");
+    const metaArch = document.getElementById("metaArchiveCount");
     const chkArchived = document.getElementById("chk-archived");
     const btnPrev = document.getElementById("btn-prev");
     const btnNext = document.getElementById("btn-next");
     const btnFlip = document.getElementById("btn-flip");
+    const btnDone = document.getElementById("btn-done");
     const btnArchive = document.getElementById("btn-archive");
     const btnDelete = document.getElementById("btn-delete");
     const btnExport = document.getElementById("btn-export");
@@ -96,19 +115,25 @@
     const btnNew = document.getElementById("btn-new");
     const fileInput = document.getElementById("file-input");
     const dlgNew = document.getElementById("dlg-new");
+    const dlgArchive = document.getElementById("dlg-archive");
+    const archList = document.getElementById("archList");
+    const archCount = document.getElementById("archCount");
 
     chkArchived.checked = !!state.showArchived;
 
     // Render
     function render(){
       const list = filtered();
+      const arch = state.cards.filter(c=>c.archived);
+      metaArch.textContent = `Archiv: ${arch.length}`;
+
       if (state.index >= list.length) state.index = Math.max(0, list.length - 1);
       if (state.index < 0) state.index = 0;
       elC.classList.remove("flipped");
       const hasCards = list.length > 0;
-      [btnPrev, btnNext, btnFlip, btnArchive, btnDelete, btnExport].forEach(b => b.disabled = !hasCards);
+      [btnPrev, btnNext, btnFlip, btnDone, btnDelete, btnExport].forEach(b => b.disabled = !hasCards);
       if (!hasCards){
-        elF.textContent = "Keine Karten";
+        elF.textContent = state.showArchived ? "Keine Karten im Archiv" : "Keine Karten";
         elB.textContent = "";
         prog.textContent = "0 / 0";
         save();
@@ -121,63 +146,34 @@
       save();
     }
 
-    function flip(){
-      if (!filtered().length) return;
-      elC.classList.toggle("flipped");
-    }
-    function next(){
-      const list = filtered();
-      if (!list.length) return;
-      state.index = (state.index + 1) % list.length;
-      render();
-    }
-    function prev(){
-      const list = filtered();
-      if (!list.length) return;
-      state.index = (state.index - 1 + list.length) % list.length;
-      render();
-    }
+    function flip(){ if (!filtered().length) return; elC.classList.toggle("flipped"); }
+    function next(){ const list = filtered(); if (!list.length) return; state.index = (state.index + 1) % list.length; render(); }
+    function prev(){ const list = filtered(); if (!list.length) return; state.index = (state.index - 1 + list.length) % list.length; render(); }
     function current(){ return filtered()[state.index]; }
     function filtered(){ return state.cards.filter(c => state.showArchived ? c.archived : !c.archived); }
     function save(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
     function load(){ try{ return JSON.parse(localStorage.getItem(STORAGE_KEY)); } catch{ return null; } }
     function sample(){ return [ { front:"Haus", back:"house", archived:false }, { front:"Baum", back:"tree", archived:false } ]; }
 
+    // CSV robust (Komma/; /Tab + Quotes)
     function parseCSV(text){
       if (text.charCodeAt(0)===0xFEFF) text=text.slice(1);
       const lines=text.split(/\r?\n/).filter(l=>l.trim().length);
       if(!lines.length) return [];
       const first=lines[0];
-      const delim = first.includes(";")?";":(first.includes("\t")?"\t":",");
-      const rows=lines.map(line=>{
-        const cols=[];let cur="",inQ=false;
-        for(let i=0;i<line.length;i++){
-          const c=line[i];
-          if(c==='"'){
-            if(inQ && line[i+1]==='"'){cur+='"';i++;}
-            else inQ=!inQ;
-          }else if(c===delim && !inQ){cols.push(cur);cur="";}
-          else{cur+=c;}
-        }
-        cols.push(cur);
-        return cols.map(s=>s.trim());
-      });
-      const norm=s=>(s||"").toLowerCase();
+      const cnt=(s,ch)=> (s.match(new RegExp(ch,"g"))||[]).length;
+      const delim = cnt(first,"\t")>cnt(first,",") && cnt(first,"\t")>cnt(first,";") ? "\t" : (cnt(first,";")>cnt(first,",") ? ";" : ",");
+      const rows=lines.map(line=>{ const cols=[]; let cur="", inQ=false; for(let i=0;i<line.length;i++){ const c=line[i]; if(c==='"'){ if(inQ && line[i+1]==='"'){cur+='"';i++;} else inQ=!inQ; } else if(c===delim && !inQ){ cols.push(cur); cur=""; } else { cur+=c; } } cols.push(cur); return cols.map(s=>s.trim()); });
+      const norm=s=>(s||"").toLowerCase().replace(/\s+/g,"");
       if(rows.length && /(front|vorder)/.test(norm(rows[0][0])) && /(back|rück)/.test(norm(rows[0][1]))) rows.shift();
       return rows.filter(r=>r[0]&&r[1]).map(r=>({front:r[0],back:r[1],archived:false}));
     }
 
-    // Event Handlers
-    btnFlip.onclick=flip;
-    btnNext.onclick=next;
-    btnPrev.onclick=prev;
-    elC.onclick=flip;
-    elC.addEventListener("keydown",e=>{
-      if(e.key===" "||e.key==="Enter"){e.preventDefault();flip();}
-      if(e.key==="ArrowRight") next();
-      if(e.key==="ArrowLeft") prev();
-    });
+    // Events
+    btnFlip.onclick=flip; btnNext.onclick=next; btnPrev.onclick=prev; elC.onclick=flip;
+    elC.addEventListener("keydown",e=>{ if(e.key===" "||e.key==="Enter"){e.preventDefault();flip();} if(e.key==="ArrowRight") next(); if(e.key==="ArrowLeft") prev(); });
 
+    // Neue Karte
     btnNew.onclick=()=>dlgNew.showModal();
     dlgNew.addEventListener("close",()=>{
       if(dlgNew.returnValue==="ok"){
@@ -185,28 +181,40 @@
         const b=document.getElementById("new-back").value.trim();
         if(f&&b) state.cards.push({front:f,back:b,archived:false});
       }
-      document.getElementById("new-front").value="";
-      document.getElementById("new-back").value="";
-      render();
+      document.getElementById("new-front").value=""; document.getElementById("new-back").value=""; render();
     });
 
-    btnExport.onclick=()=>{
-      const data=JSON.stringify(state.cards,null,2);
-      const a=document.createElement("a");
-      a.href=URL.createObjectURL(new Blob([data],{type:"application/json"}));
-      a.download="cards.json";a.click();
-    };
+    // Abschließen (in Archiv verschieben)
+    btnDone.onclick=()=>{ const c=current(); if(!c) return; c.archived=true; state.index=0; render(); };
 
+    // Archiv-Ordner öffnen (Dialog)
+    btnArchive.onclick=()=>{ buildArchiveDialog(); dlgArchive.showModal(); };
+    function buildArchiveDialog(){
+      archList.innerHTML="";
+      const archived = state.cards.filter(c=>c.archived);
+      archCount.textContent = `(${archived.length})`;
+      if(!archived.length){ archList.innerHTML = '<div class="row"><div class="word">Keine Karten im Archiv</div></div>'; return; }
+      archived.forEach((c)=>{
+        const row = document.createElement('div'); row.className='row';
+        const word = document.createElement('div'); word.className='word'; word.innerHTML = `<strong>${escapeHtml(c.front)}</strong> <small>– ${escapeHtml(c.back)}</small>`;
+        const actions = document.createElement('div');
+        const btnRestore = document.createElement('button'); btnRestore.className='btn primary'; btnRestore.textContent='Wiederherstellen';
+        const btnDel = document.createElement('button'); btnDel.className='btn secondary'; btnDel.textContent='Löschen';
+        btnRestore.onclick=()=>{ c.archived=false; render(); buildArchiveDialog(); };
+        btnDel.onclick=()=>{ const i=state.cards.indexOf(c); if(i>-1) state.cards.splice(i,1); render(); buildArchiveDialog(); };
+        actions.appendChild(btnRestore); actions.appendChild(btnDel);
+        row.appendChild(word); row.appendChild(actions); archList.appendChild(row);
+      });
+    }
+
+    function escapeHtml(s){ return (s+"").replace(/[&<>"']/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m])); }
+
+    // Export/Import
+    btnExport.onclick=()=>{ const data=JSON.stringify(state.cards,null,2); const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([data],{type:"application/json"})); a.download="cards.json"; a.click(); };
     btnImport.onclick=()=>fileInput.click();
-    fileInput.addEventListener("change",async e=>{
-      const f=e.target.files[0];if(!f) return;const text=await f.text();
-      try{ if(f.name.endsWith(".json")){const arr=JSON.parse(text);state.cards=arr.map(o=>({front:o.front,back:o.back,archived:!!o.archived}));}
-      else state.cards=parseCSV(text);state.index=0;render();}
-      catch(err){alert("Fehler beim Import: "+err.message);}finally{e.target.value="";}
-    });
+    fileInput.addEventListener("change",async e=>{ const f=e.target.files[0]; if(!f) return; const text=await f.text(); try{ if(f.name.endsWith(".json")){ const arr=JSON.parse(text); state.cards=arr.map(o=>({front:o.front,back:o.back,archived:!!o.archived})); } else { state.cards=parseCSV(text); } state.index=0; render(); } catch(err){ alert("Fehler beim Import: "+err.message); } finally { e.target.value=""; } });
 
-    btnArchive.onclick=()=>{ state.showArchived=true; state.index=0; render(); };
-    btnDelete.onclick=()=>{ const c=current(); if(!c) return; const i=state.cards.indexOf(c); if(i>-1) state.cards.splice(i,1); state.index=0; render(); };
+    // Archiv-Ansicht per Checkbox (optional)
     chkArchived.addEventListener("change",()=>{ state.showArchived=chkArchived.checked; state.index=0; render(); });
 
     render();
